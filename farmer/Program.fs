@@ -117,7 +117,7 @@ let getAcrCreds() = result {
 let pushDockerImage (host, user, pwd) = result {
     let dockerShell = Shell(fun opts ->
         opts.ThrowOnError(false)
-            .WorkingDirectory("../..")
+            .WorkingDirectory("../")
         |> ignore
         )
     
