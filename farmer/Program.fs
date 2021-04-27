@@ -20,6 +20,7 @@ let getEnv name =
 let appId = getEnv "REXTESTER_DEPLOY_APPID"
 let pwd = getEnv "REXTESTER_DEPLOY_PWD"
 let tenant = getEnv "REXTESTER_DEPLOY_TENANT"
+let apiKey = getEnv "REXTESTER_APIKEY"
 
 type Result.ResultBuilder with
     member _.Bind(cmd: Command, next: unit -> Result<'a, string>): Result<'a, string> =
@@ -45,13 +46,15 @@ let registry = containerRegistry {
     enable_admin_user
 }
 
-let botApp = webApp {
+let proxyApp = webApp {
     name appName
 
     app_insights_off
     always_on
     operating_system Linux
     sku WebApp.Sku.B1
+    
+    setting "REXTESTER_APIKEY" apiKey
     
     docker_ci
     docker_use_azure_registry acrName
@@ -70,10 +73,12 @@ let registryDeployment = arm {
 
 let appDeployment = arm {
     location Location.NorthEurope
-    add_resources [
-        logs
-        botApp
-    ]
+    add_resource proxyApp
+}
+
+let logDeployment = arm {
+    location Location.NorthEurope
+    add_resource logs
     add_resource (Resource.ofJson $"""
 {{
     "type": "Microsoft.Web/sites/providers/diagnosticSettings",
@@ -146,14 +151,21 @@ let deployAll() = result {
 
     // build&push image to registry
     do! pushDockerImage(registryHost, registryLogin, registryPwd)
-
-    // deploy webapp with bot
+    
+    let! appDeploymentResult =
+        Deploy.tryExecute
+            resourceGroup
+            [ proxyApp.DockerAcrCredentials.Value.Password.Value, registryPwd ]
+            appDeployment
+    printfn $"%A{appDeploymentResult}"
+    
+    // deploy webapp with proxy
     let! deploymentResult =
         Deploy.tryExecute
             resourceGroup
-            [ botApp.DockerAcrCredentials.Value.Password.Value, registryPwd ]
-            appDeployment
-    return printfn "%A" deploymentResult
+            Deploy.NoParameters
+            logDeployment
+    return printfn $"%A{deploymentResult}"
 }
 
 [<EntryPoint>]
