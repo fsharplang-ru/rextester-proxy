@@ -1,0 +1,23 @@
+name: Deploy docker image
+
+on:
+  push:
+    branches: [ master ]
+    paths-ignore:
+      - "**.md"
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build and push docker image to registry
+        env:
+          REXTESTER_DEPLOY_APPID: ${{ secrets.REXTESTER_DEPLOY_APPID }}
+          REXTESTER_DEPLOY_PWD: ${{ secrets.REXTESTER_DEPLOY_PWD }}
+          REXTESTER_DEPLOY_TENANT: ${{ secrets.REXTESTER_DEPLOY_TENANT }}
+        run: |
+          cd farmer
+          dotnet run

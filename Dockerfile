@@ -1,10 +1,14 @@
 FROM mcr.microsoft.com/dotnet/sdk:5.0 AS build-dotnet
 WORKDIR /app
-COPY rextester-proxy.fsproj ./rextester-proxy.fsproj
+# Copy csproj and restore as distinct layers
+COPY src/rextester-proxy.fsproj ./rextester-proxy.fsproj
 RUN dotnet restore -r linux-x64
 
-COPY Program.fs ./Program.fs
-RUN dotnet publish -r linux-x64 -c Release -o out --no-restore --verbosity normal
+# Then build&test app
+COPY src/Program.fs ./Program.fs
+RUN dotnet test -c Release -r linux-x64 -o out --no-restore --verbosity normal
+# Publish
+RUN dotnet publish -r linux-x64 -c Release -o out
 
 # Build runtime image
 FROM mcr.microsoft.com/dotnet/runtime:5.0

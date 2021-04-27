@@ -1,0 +1,19 @@
+name: Deploy everything to Azure
+
+on: workflow_dispatch
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Deploy everything to Azure
+        env:
+          REXTESTER_DEPLOY_APPID: ${{ secrets.REXTESTER_DEPLOY_APPID }}
+          REXTESTER_DEPLOY_PWD: ${{ secrets.REXTESTER_DEPLOY_PWD }}
+          REXTESTER_DEPLOY_TENANT: ${{ secrets.REXTESTER_DEPLOY_TENANT }}
+        run: |
+          cd farmer
+          dotnet run --all
