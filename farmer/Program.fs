@@ -59,8 +59,6 @@ let proxyApp = webApp {
     docker_ci
     docker_use_azure_registry acrName
     docker_image "rextester/proxy:latest" ""
-    
-    depends_on logs.Name
 }
 
 let registryDeployment = arm {
