@@ -42,7 +42,7 @@ let setResponse (ctx: HttpContext) (response: HttpResponseMessage) = task {
     ctx.Response.StatusCode <- int response.StatusCode
     
     for KeyValue(name, value) in response.Headers do
-        ctx.SetHttpHeader(name, value)
+        ctx.SetHttpHeader(name, String.concat ";" value)
     
     return! ctx.WriteStreamAsync(
                 enableRangeProcessing = false,
