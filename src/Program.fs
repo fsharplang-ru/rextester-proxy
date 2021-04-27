@@ -8,6 +8,7 @@ open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.Extensions.DependencyInjection
+open Microsoft.Extensions.Primitives
 
 type ToCompile =
     { LanguageChoice: int
@@ -26,9 +27,10 @@ let createProxyRequest (ctx: HttpContext) = task {
     proxyReq.RequestUri <- apiUrl
     
     for KeyValue(name, value) in req.Headers do
-        if name <> "Host" then
-            proxyReq.Headers.TryAddWithoutValidation(name, value)
-            |> ignore
+        proxyReq.Headers.TryAddWithoutValidation(name, value)
+        |> ignore
+        
+    proxyReq.Headers.Host <- apiUrl.Host
         
     let! toCompile = ctx.BindJsonAsync<ToCompile>()
     toCompile.ApiKey <- apiKey
@@ -42,14 +44,15 @@ let setResponse (ctx: HttpContext) (response: HttpResponseMessage) = task {
     ctx.Response.StatusCode <- int response.StatusCode
     
     for KeyValue(name, value) in response.Headers do
-        ctx.SetHttpHeader(name, String.concat ";" value)
+        ctx.Response.Headers.[name] <- StringValues(Array.ofSeq value)
     
-    return! ctx.WriteStreamAsync(
-                enableRangeProcessing = false,
-                stream = response.Content.ReadAsStream(),
-                eTag = None,
-                lastModified = None
-    )
+    for KeyValue(name, value) in response.Content.Headers do
+        ctx.Response.Headers.[name] <- StringValues(Array.ofSeq value)
+    
+    ctx.Response.Headers.Remove "transfer-encoding" |> ignore
+    
+    do! response.Content.CopyToAsync ctx.Response.Body
+    return Some ctx
 }
 
 let forwarder: HttpHandler = fun _ ctx -> task {
@@ -57,7 +60,7 @@ let forwarder: HttpHandler = fun _ ctx -> task {
     let http = clientFactory.CreateClient()
 
     use! proxyReq = createProxyRequest ctx
-    use! response = http.SendAsync proxyReq
+    use! response = http.SendAsync(proxyReq, HttpCompletionOption.ResponseHeadersRead, ctx.RequestAborted)
 
     return! setResponse ctx response
 }
