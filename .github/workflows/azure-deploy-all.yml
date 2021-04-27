@@ -14,6 +14,7 @@ jobs:
           REXTESTER_DEPLOY_APPID: ${{ secrets.REXTESTER_DEPLOY_APPID }}
           REXTESTER_DEPLOY_PWD: ${{ secrets.REXTESTER_DEPLOY_PWD }}
           REXTESTER_DEPLOY_TENANT: ${{ secrets.REXTESTER_DEPLOY_TENANT }}
+          REXTESTER_APIKEY: ${{ secrets.REXTESTER_APIKEY }}
         run: |
           cd farmer
           dotnet run --all
