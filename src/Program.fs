@@ -32,8 +32,8 @@ let createProxyRequest (ctx: HttpContext) = task {
         |> ignore
         
     proxyReq.Headers.Host <- apiUrl.Host
-        
-    let! toCompile = ctx.BindJsonAsync<ToCompile>()
+    
+    let! toCompile = ctx.BindModelAsync<ToCompile>()
     toCompile.ApiKey <- apiKey
     let jsonContent = new StringContent(serializer.SerializeToString toCompile, Encoding.UTF8, "application/json");
     proxyReq.Content <- jsonContent
