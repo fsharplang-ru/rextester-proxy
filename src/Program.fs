@@ -10,6 +10,7 @@ open Microsoft.AspNetCore.Hosting
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Primitives
 
+[<CLIMutable>]
 type ToCompile =
     { LanguageChoice: int
       Program: string
