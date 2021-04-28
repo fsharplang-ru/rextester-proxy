@@ -17,6 +17,7 @@ type ToCompile =
 
 let apiKey = Environment.GetEnvironmentVariable "REXTESTER_APIKEY"
 let apiUrl = Uri "https://rextester.com/rundotnet/api"
+let allowedOrigin = "http://fsharplang.ru"
 
 let createProxyRequest (ctx: HttpContext) = task {
     let req = ctx.Request
@@ -52,7 +53,6 @@ let setResponse (ctx: HttpContext) (response: HttpResponseMessage) = task {
     ctx.Response.Headers.Remove "transfer-encoding" |> ignore
     
     do! response.Content.CopyToAsync ctx.Response.Body
-    return Some ctx
 }
 
 let forwarder: HttpHandler = fun _ ctx -> task {
@@ -62,11 +62,14 @@ let forwarder: HttpHandler = fun _ ctx -> task {
     use! proxyReq = createProxyRequest ctx
     use! response = http.SendAsync(proxyReq, HttpCompletionOption.ResponseHeadersRead, ctx.RequestAborted)
 
-    return! setResponse ctx response
+    do! setResponse ctx response
+    
+    return Some ctx
 }
 
 let configureServices (services : IServiceCollection) =
     services
+        .AddCors()
         .AddRouting()
         .AddGiraffe()
         .AddHttpClient()
@@ -75,6 +78,12 @@ let configureServices (services : IServiceCollection) =
 let configureApp (appBuilder : IApplicationBuilder) =
     appBuilder
         .UseRouting()
+        .UseCors(fun cors ->
+            cors.WithOrigins(allowedOrigin)
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+            |> ignore
+        )
         .UseGiraffe forwarder
 
 [<EntryPoint>]
