@@ -11,9 +11,9 @@ jobs:
       - uses: actions/checkout@v2
       - name: Deploy everything to Azure
         env:
-          REXTESTER_DEPLOY_APPID: ${{ secrets.REXTESTER_DEPLOY_APPID }}
-          REXTESTER_DEPLOY_PWD: ${{ secrets.REXTESTER_DEPLOY_PWD }}
-          REXTESTER_DEPLOY_TENANT: ${{ secrets.REXTESTER_DEPLOY_TENANT }}
+          DOTNETRU_DEPLOY_APPID: ${{ secrets.DOTNETRU_DEPLOY_APPID }}
+          DOTNETRU_DEPLOY_PWD: ${{ secrets.DOTNETRU_DEPLOY_PWD }}
+          DOTNETRU_DEPLOY_TENANT: ${{ secrets.DOTNETRU_DEPLOY_TENANT }}
           REXTESTER_APIKEY: ${{ secrets.REXTESTER_APIKEY }}
         run: |
           cd farmer

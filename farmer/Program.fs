@@ -4,10 +4,12 @@ open Farmer
 open Farmer.Builders
 open Medallion.Shell
 
-let resourceGroup = "rextester-proxy-rg"
-let acrName = "rextester"
-let logName = "rextester-log"
+let resourceGroup = "dotnetru-rg"
+let acrName = "dotnetruacr"
+let logName = "dotnetru-log"
 let appName = "rextester-app"
+
+let servicePlanName = "dotnetru-service-plan"
 
 let getEnv name =
     match Environment.GetEnvironmentVariable name with
@@ -17,9 +19,9 @@ let getEnv name =
 //        Console.ReadLine()
     | value -> value
  
-let appId = getEnv "REXTESTER_DEPLOY_APPID"
-let pwd = getEnv "REXTESTER_DEPLOY_PWD"
-let tenant = getEnv "REXTESTER_DEPLOY_TENANT"
+let appId = getEnv "DOTNETRU_DEPLOY_APPID"
+let pwd = getEnv "DOTNETRU_DEPLOY_PWD"
+let tenant = getEnv "DOTNETRU_DEPLOY_TENANT"
 let apiKey = getEnv "REXTESTER_APIKEY"
 
 type Result.ResultBuilder with
@@ -33,7 +35,6 @@ type Result.ResultBuilder with
 
 let logs = logAnalytics {
     name logName
-    
     retention_period 30<Days>
     enable_query
     enable_ingestion
@@ -46,13 +47,19 @@ let registry = containerRegistry {
     enable_admin_user
 }
 
+let servicePlan = servicePlan {
+    name servicePlanName
+    sku WebApp.Sku.B1
+    operating_system Linux
+}
+
 let proxyApp = webApp {
     name appName
 
     app_insights_off
     always_on
-    operating_system Linux
-    sku WebApp.Sku.B1
+    
+    link_to_service_plan servicePlan
     
     setting "REXTESTER_APIKEY" apiKey
     
@@ -69,14 +76,20 @@ let registryDeployment = arm {
     output "login" $"['{acrName}']"
 }
 
+//let servicePlanDeploy = arm {
+//    location Location.NorthEurope
+//    add_resource servicePlan
+//}
+
 let appDeployment = arm {
     location Location.NorthEurope
+    add_resource servicePlan
     add_resource proxyApp
+    add_resource logs
 }
 
-let logDeployment = arm {
+let addLogsToWebApp = arm {
     location Location.NorthEurope
-    add_resource logs
     add_resource (Resource.ofJson $"""
 {{
     "type": "Microsoft.Web/sites/providers/diagnosticSettings",
@@ -134,7 +147,7 @@ let pushDockerImage (host, user, pwd) = result {
 let deployAll() = result {
     // authenticate into Azure
     let! authResult = Deploy.authenticate appId pwd tenant
-    printfn "%A" authResult
+    printfn $"%A{authResult}"
     
     // deploying container registry
     let! registryDeploymentResult =
@@ -142,7 +155,9 @@ let deployAll() = result {
             resourceGroup
             Deploy.NoParameters
             registryDeployment
-
+            
+    printfn "ACR deployed successfully"
+            
     let registryPwd = registryDeploymentResult.["pwd"]
     let registryLogin = registryDeploymentResult.["login"]
     let registryHost = registryDeploymentResult.["host"]
@@ -150,20 +165,23 @@ let deployAll() = result {
     // build&push image to registry
     do! pushDockerImage(registryHost, registryLogin, registryPwd)
     
-    let! appDeploymentResult =
+    printfn "Docker image pushed successfully"
+    
+    // deploy webapp
+    let! _ =
         Deploy.tryExecute
             resourceGroup
             [ proxyApp.DockerAcrCredentials.Value.Password.Value, registryPwd ]
             appDeployment
-    printfn $"%A{appDeploymentResult}"
+    printfn "Webapp, log analytic and service plan deployed successfully"
     
-    // deploy webapp with proxy
-    let! deploymentResult =
+    // deploy logs
+    let! _ =
         Deploy.tryExecute
             resourceGroup
             Deploy.NoParameters
-            logDeployment
-    return printfn $"%A{deploymentResult}"
+            addLogsToWebApp
+    return printfn "Logs linked with webapp successfully"
 }
 
 [<EntryPoint>]
@@ -179,6 +197,6 @@ let main argv =
         // deploy everything = resources + image
         deployAll()
     | x ->
-        failwithf "Unknown arguments %A" x
+        failwith $"Unknown arguments %A{x}"
     |> Result.get
     0
